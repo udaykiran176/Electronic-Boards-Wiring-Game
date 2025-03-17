@@ -1,16 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { useFullscreen } from '../FullscreenContext';
-import { useSound } from '../SoundContext';
 import powerSupplyBoard from '../assets/power supply board.svg';
 import ledboard from '../assets/led board.svg';
 import battery from '../assets/9vbattery.svg';
-import switchboard from '../assets/push on off switch.svg';
+import switchboard from '../assets/pot.svg';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from "framer-motion";
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import '../index.css';
+import CircularSlider from 'react-circular-slider-svg';
+import { useSound } from '../SoundContext';
 import { FaArrowLeft, FaUndo, FaPlay, FaQuestionCircle, FaArrowRight } from 'react-icons/fa';
 import { MdExitToApp } from 'react-icons/md';
 
@@ -32,7 +33,6 @@ interface Connection {
 export default function Experiment1() {
   const navigate = useNavigate();
   const { setIsFullscreen } = useFullscreen();
-  const { playSound } = useSound();
   const [batteryX, setBatteryX] = useState(700);
   const [selectedNode, setSelectedNode] = useState<CircuitNode | null>(null);
   const [showSimulationButton, setShowSimulationButton] = useState(false);
@@ -42,20 +42,22 @@ export default function Experiment1() {
   const [isFullscreen, setIsFullscreenState] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isPowerOn, setIsPowerOn] = useState(true);
-  const [isSwitchOn, setIsSwitchOn] = useState(true);
+  const [sliderAngle, setSliderAngle] = useState(0);
+  const { playSound } = useSound();
 
-    // Navigation handlers
-    const handleNextExperiment = () => {
-      setIsFullscreen(true);
-      navigate('/experiment/5');
-      playSound('click');
-    };
+  // Navigation handlers
+  const handleNextExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/9');
+    playSound('click');
+  };
 
-    const handlePreviousExperiment = () => {
-      setIsFullscreen(true);
-      navigate('/experiment/3');
-      playSound('click');
-    };
+  const handlePreviousExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/7');
+    playSound('click');
+  };
+
   // Define circuit nodes
   const circuitNodes: CircuitNode[] = [
     { id: '5v', type: '5V', x: 590, y: 289 },
@@ -358,8 +360,7 @@ export default function Experiment1() {
     // Check if either pattern is complete and battery is in position
     if ((hasPattern1 || hasPattern2) && batteryX === 620 && !showSimulationButton) {
       setTimeout(() => {
-        playSound('success');
-        toast.success('Circuit complete! Ready for simulation! ✨', {
+        toast.success('Perfect! Circuit complete! Ready for simulation! ✨', {
           duration: 2000,
           style: {
             background: '#4CAF50',
@@ -374,66 +375,31 @@ export default function Experiment1() {
         setShowSimulationButton(true);
       }, 500);
     }
-  }, [connections, batteryX, showSimulationButton, triggerConfetti, playSound]);
+  }, [connections, batteryX, showSimulationButton, triggerConfetti]);
 
   const handlePowerToggle = () => {
     setIsPowerOn(!isPowerOn);
-    if (!isPowerOn) {
-      setIsSwitchOn(true);
-    } else {
-      setIsSwitchOn(false);
-    }
-    playSound('click');
     toast.success(`Power is ${!isPowerOn ? 'on' : 'off'}`, {
-      duration: 2000,
+      duration: 1000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '14px',
+        fontSize: '12px',
         padding: '5px 10px',
       },
       icon: isPowerOn ? '🔌' : '⚡',
     });
   };
 
-  const handleSwitchToggle = () => {
-    if (!isPowerOn) {
-      toast.error('Turn on power first!', {
-        duration: 1000,
-        style: {
-          background: '#f44336',
-          color: 'white',
-          fontSize: '12px',
-          padding: '5px 10px',
-        }
-      });
-      return;
-    }
-    setIsSwitchOn(!isSwitchOn);
-    playSound('click');
-    toast.success(`Switch is ${!isSwitchOn ? 'on' : 'off'}`, {
-      duration: 2000,
-      style: {
-        background: '#4CAF50',
-        color: 'white',
-        fontSize: '14px',
-        padding: '5px 10px',
-      },
-      icon: isSwitchOn ? '⭕' : '⚡',
-    });
-  };
-
   const handleSimulationMode = () => {
     setIsSimulationMode(true);
     setIsPowerOn(true);
-    setIsSwitchOn(true);
     playSound('success');
   };
 
   const handleExitSimulation = () => {
     setIsSimulationMode(false);
     setIsPowerOn(false);
-    setIsSwitchOn(false);
     handleReset();
   };
 
@@ -444,8 +410,8 @@ export default function Experiment1() {
     setShowSimulationButton(false);
     setIsSimulationMode(false);
     setIsPowerOn(false);
-    setIsSwitchOn(false);
     setBatteryX(700);
+    setSliderAngle(0);
     playSound('click');
 
     toast.success('All connections reset! 🔄', {
@@ -498,7 +464,7 @@ export default function Experiment1() {
       {/* Title Section - 10vh */}
       <div className="bg-blue-200 h-[10vh] flex items-center -full border-b border-blue-200 p-5 rounded-md">
         <p className='text-center text-black-800 text-lg font-semibold'>
-          {isSimulationMode ? 'Simulation Mode - click the button to turn the LED on and off' : 'Push On/Off Switch Connections: Connect 5V to switch (T1/T2), then to LED+, and GND to LED- ✨'}
+          {isSimulationMode ? 'Simulation Mode - Turn the potentiometer to control LED brightness! 🔆' : 'LED Brightness Control: Connect the Potentiometer to adjust LED intensity! ✨'}
         </p>
       </div>
 
@@ -562,11 +528,11 @@ export default function Experiment1() {
             
           </g>  
       
-      {/* Add Push on/off switch with Terminals between power supply and LED */}
+      {/*potentiometer with Terminals*/}
       <g transform="rotate(0, 500, 500)"> 
         <image 
           href={switchboard}
-          x="340"
+          x="330"
           y="20"
           width="200"
           height="200"
@@ -731,10 +697,10 @@ export default function Experiment1() {
               <circle
                 cx="300"
                 cy="50"
-                r={isPowerOn && isSwitchOn ? '50' : '5'}
-                fill={isPowerOn && isSwitchOn ? 'url(#ledGradient)' : '#0cdbf8'}
+                r={isPowerOn ? 5 + (sliderAngle / 270) * 45 : '5'}
+                fill={isPowerOn ? 'url(#ledGradient)' : '#0cdbf8'}
                 filter="url(#glow)"
-                opacity="0.9"
+                opacity={isPowerOn ? 0.3 + (sliderAngle / 270) * 0.7 : '0.3'}
               />
             </>
           )}
@@ -769,36 +735,55 @@ export default function Experiment1() {
               </text>
             </g>
 
-            {/* Switch Button */}
-            <g transform="translate(420, 40)">
-              <rect
-                x="0"
-                y="0"
-                width="40"
-                height="40"
-                fill={isSwitchOn ? '#4CAF50' : '#f44336'}
-                stroke="#000"
-                strokeWidth="1"
-                rx="10"
-                style={{ cursor: isPowerOn ? 'pointer' : 'not-allowed', opacity: isPowerOn ? 1 : 0.5 }}
-                onClick={handleSwitchToggle}
-              />
-              <text
-                x="20"
-                y="25"
-                textAnchor="middle"
-                fill="white"
-                fontSize="12"
-                fontWeight="bold"
+            {/* Replace Switch Button with Circular Slider */}
+            <g transform="translate(480, 15)">
+              <CircularSlider
+                size={220}
+                minValue={0}
+                maxValue={100}
+                startAngle={90}
+                endAngle={270}
+                trackWidth={20}
+            
+                handle1={{
+                  value: Math.round((sliderAngle / 270) * 100),
+                  onChange: (v: number) => {
+                    const newAngle = (v / 100) * 270;
+                    setSliderAngle(newAngle);
+                  }
+                }}
+                arcColor={isPowerOn ? "#4CAF50" : "#ccc"}
+                arcBackgroundColor="#000"
               >
-                {isSwitchOn ? 'ON' : 'OFF'}
-              </text>
+                <text
+                  x="100"
+                  y="110"
+                  textAnchor="middle"
+                  fill="#666"
+                  fontSize="24"
+                  fontWeight="bold"
+                >
+                  {Math.round((sliderAngle / 270) * 100)}%
+                </text>
+                {/* Tick marks */}
+                {[0, 45, 90, 135, 180, 225, 270].map((angle) => (
+                  <line
+                    key={angle}
+                    x1={100 + 80 * Math.cos((angle * Math.PI) / 180)}
+                    y1={100 + 80 * Math.sin((angle * Math.PI) / 180)}
+                    x2={100 + 90 * Math.cos((angle * Math.PI) / 180)}
+                    y2={100 + 90 * Math.sin((angle * Math.PI) / 180)}
+                    stroke="#999"
+                    strokeWidth="2"
+                  />
+                ))}
+              </CircularSlider>
             </g>
           </g>
         )}
       </svg>
 
-          {/* Controls Section - Positioned over SVG */}
+         {/* Controls Section - Positioned over SVG */}
     <div className="absolute bottom-4 left-4 right-4 flex justify-between z-10">
       {/* Left side controls group */}
       <div className="flex gap-1.5">
@@ -878,8 +863,8 @@ export default function Experiment1() {
         )}
       </div>
 
-    {/*Right  side*/}
-    <div className='flex gap-1.5'>
+        {/*Right  side*/}
+      <div className='flex gap-1.5'>
       {/* Previous Experiment Button */}
       <button
         onClick={handlePreviousExperiment}
@@ -911,7 +896,7 @@ export default function Experiment1() {
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-30 p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95%] sm:max-w-md w-full shadow-xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">How to Play! 🎮</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">LED Brightness Control Guide! 🎮</h2>
               <button
                 onClick={() => setShowHelp(false)}
                 className="text-gray-500 hover:text-gray-700 p-1"
@@ -924,39 +909,34 @@ export default function Experiment1() {
             <div className="space-y-3 sm:space-y-4 text-sm sm:text-base text-gray-600">
               <div className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold text-sm sm:text-base">1.</span>
-                <p>Click on the battery to move it closer to the circuit! 🔋</p>
+                <p>Move the battery closer to power up the circuit! 🔋</p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold text-sm sm:text-base">2.</span>
-                <p>Choose your connection pattern! You can either:</p>
+                <p>Connect the potentiometer terminals:</p>
                 <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                  <li>Start with 5V → Switch → LED+ → LED- → GND</li>
-                  <li>Or start with GND → Switch → LED- → LED+ → 5V</li>
+                  <li>Terminal 1 to 5V (power)</li>
+                  <li>Terminal 2 (wiper) to LED+</li>
+                  <li>Terminal 3 to GND (ground)</li>
                 </ul>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold text-sm sm:text-base">3.</span>
-                <p>Click on either the red (5V) or black (GND) terminal to start your chosen pattern! ⚡</p>
+                <p>Connect LED negative terminal to GND! ⚡</p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold text-sm sm:text-base">4.</span>
-                <p>Connect to either T1 or T2 of the switch! 🔄</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-blue-500 font-bold text-sm sm:text-base">5.</span>
-                <p>Complete the circuit by connecting to the LED terminals in the correct order! 💡</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-blue-500 font-bold text-sm sm:text-base">6.</span>
-                <p>Once all connections are made, you can enter simulation mode and control the LED! 🎮</p>
+                <p>Enter simulation mode to control the LED brightness! 🎮</p>
               </div>
               <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
-                <p className="text-blue-800 font-semibold text-sm sm:text-base">💡 Tips:</p>
+                <p className="text-blue-800 font-semibold text-sm sm:text-base">💡 How it works:</p>
                 <ul className="list-disc list-inside mt-2 text-blue-700 text-sm sm:text-base space-y-1">
-                  <li>Follow the color coding: red for positive (5V), black for negative (GND)</li>
-                  <li>You can click a terminal again to remove its connection</li>
-                  <li>Use the Reset button if you want to start over</li>
-                  <li>Make sure the battery is in position before completing the circuit</li>
+                  <li>The potentiometer acts as a variable resistor</li>
+                  <li>Turning it changes the voltage reaching the LED</li>
+                  <li>More voltage = brighter LED</li>
+                  <li>Less voltage = dimmer LED</li>
+                  <li>Click a terminal again to remove its connection</li>
+                  <li>Use Reset to start over or Exit to make new connections</li>
                 </ul>
               </div>
             </div>

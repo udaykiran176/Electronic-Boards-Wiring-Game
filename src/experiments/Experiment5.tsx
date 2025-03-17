@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useFullscreen } from '../FullscreenContext';
+import { useSound } from '../SoundContext';
 import powerSupplyBoard from '../assets/power supply board.svg';
 import ledboard from '../assets/led board.svg';
 import battery from '../assets/9vbattery.svg';
@@ -10,6 +11,8 @@ import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import '../index.css';
+import { FaArrowLeft, FaUndo, FaPlay, FaQuestionCircle, FaArrowRight } from 'react-icons/fa';
+import { MdExitToApp } from 'react-icons/md';
 
 // Add these types at the top of the file
 type CircuitNodeType = '5V' | 'GND' | 'LED_POSITIVE' | 'LED_NEGATIVE' | 'T1' | 'T2';
@@ -29,6 +32,7 @@ interface Connection {
 export default function Experiment1() {
   const navigate = useNavigate();
   const { setIsFullscreen } = useFullscreen();
+  const { playSound } = useSound();
   const [batteryX, setBatteryX] = useState(700);
   const [selectedNode, setSelectedNode] = useState<CircuitNode | null>(null);
   const [showSimulationButton, setShowSimulationButton] = useState(false);
@@ -39,6 +43,19 @@ export default function Experiment1() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isPowerOn, setIsPowerOn] = useState(true);
   const [isSwitchOn, setIsSwitchOn] = useState(true);
+
+  // Navigation handlers
+  const handleNextExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/6');
+    playSound('click');
+  };
+
+  const handlePreviousExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/4');
+    playSound('click');
+  };
 
   // Define circuit nodes
   const circuitNodes: CircuitNode[] = [
@@ -114,52 +131,48 @@ export default function Experiment1() {
 
   const handleBack = () => {
     setIsFullscreen(true);
-    navigate('/');
+    navigate('/game');
   };
 
   const handleBatteryClick = () => {
     if (isSimulationMode) return;
     setBatteryX(prev => prev === 700 ? 620 : 700);
+    playSound('click');
     toast.success('Battery moved! 🔋', {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '12px',
+        fontSize: '14px',
         padding: '5px 10px',
       }
     });
   };
 
   const triggerConfetti = useCallback(() => {
-    const duration = 3 * 1000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    const defaults = {
+      spread: 360,
+      ticks: 100,
+      gravity: 0,
+      decay: 0.94,
+      startVelocity: 30,
+      shapes: ['star'],
+      colors: ['FFE400', 'FFBD00', 'E89400', 'FFCA6C', 'FDFFB8']
+    };
 
-    function randomInRange(min: number, max: number) {
-      return Math.random() * (max - min) + min;
+    function shoot() {
+      confetti({
+        ...defaults,
+        particleCount: 40,
+        scalar: 1.2,
+        shapes: ['star']
+      });
     }
 
-    const interval: any = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
-
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
-      }
-
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-      });
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-      });
-    }, 250);
-  }, []);
+    setTimeout(shoot, 0);
+    setTimeout(shoot, 100);
+    setTimeout(shoot, 200);
+  }, [confetti]);
 
   const canConnect = (node1: CircuitNode, node2: CircuitNode) => {
     // Helper functions to identify terminal types
@@ -263,12 +276,13 @@ export default function Experiment1() {
 
     if (!selectedNode) {
       setSelectedNode(node);
+      playSound('click');
       toast.success(`Selected ${node.type} terminal! Now click a matching terminal!`, {
-        duration: 1000,
+        duration: 2000,
         style: {
           background: '#4CAF50',
           color: 'white',
-          fontSize: '12px',
+          fontSize: '14px',
           padding: '5px 10px',
         }
       });
@@ -278,6 +292,7 @@ export default function Experiment1() {
     // If clicking the same node, deselect it
     if (selectedNode.id === node.id) {
       setSelectedNode(null);
+      playSound('click');
       setConnections(prev => prev.filter(conn => 
         conn.from.id !== node.id && conn.to.id !== node.id
       ));
@@ -291,23 +306,25 @@ export default function Experiment1() {
         to: node,
       };
       setConnections(prev => [...prev, newConnection]);
+      playSound('connection');
       
       toast.success('Connection made! ✨', {
-        duration: 1000,
+        duration: 2000,
         style: {
           background: '#4CAF50',
           color: 'white',
-          fontSize: '12px',
+          fontSize: '14px',
           padding: '5px 10px',
         }
       });
     } else {
-      toast.error('Invalid connection! Try connecting matching terminals.', {
-        duration: 1000,
+      playSound('error');
+      toast.error('Invalid connection! Try combining series and parallel connections.', {
+        duration: 2000,
         style: {
           background: '#f44336',
           color: 'white',
-          fontSize: '12px',
+          fontSize: '14px',
           padding: '5px 10px',
         }
       });
@@ -337,7 +354,8 @@ export default function Experiment1() {
     // Check if either pattern is complete and battery is in position
     if ((hasPattern1 || hasPattern2) && batteryX === 620 && !showSimulationButton) {
       setTimeout(() => {
-        toast.success('Perfect! Circuit complete! Ready for simulation! ✨', {
+        playSound('success');
+        toast.success('Circuit complete! Ready for simulation! ✨', {
           duration: 2000,
           style: {
             background: '#4CAF50',
@@ -352,17 +370,18 @@ export default function Experiment1() {
         setShowSimulationButton(true);
       }, 500);
     }
-  }, [connections, batteryX, showSimulationButton, triggerConfetti]);
+  }, [connections, batteryX, showSimulationButton, triggerConfetti, playSound]);
 
   const handlePowerToggle = () => {
     setIsPowerOn(!isPowerOn);
     setIsSwitchOn(false);
+    playSound('click');
     toast.success(`Power is ${!isPowerOn ? 'on' : 'off'}`, {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '12px',
+        fontSize: '14px',
         padding: '5px 10px',
       },
       icon: isPowerOn ? '🔌' : '⚡',
@@ -371,24 +390,26 @@ export default function Experiment1() {
 
   const handleSwitchMouseDown = () => {
     if (!isPowerOn) {
+      playSound('error');
       toast.error('Turn on power first!', {
-        duration: 1000,
+        duration: 2000,
         style: {
           background: '#f44336',
           color: 'white',
-          fontSize: '12px',
+          fontSize: '14px',
           padding: '5px 10px',
         }
       });
       return;
     }
     setIsSwitchOn(true);
+    playSound('click');
     toast.success('Switch pressed! LED ON ⚡', {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '12px',
+        fontSize: '14px',
         padding: '5px 10px',
       },
       icon: '⚡',
@@ -398,12 +419,13 @@ export default function Experiment1() {
   const handleSwitchMouseUp = () => {
     if (!isPowerOn) return;
     setIsSwitchOn(false);
+    playSound('click');
     toast.success('Switch released! LED OFF ⭕', {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '12px',
+        fontSize: '14px',
         padding: '5px 10px',
       },
       icon: '⭕',
@@ -419,6 +441,7 @@ export default function Experiment1() {
     setIsSimulationMode(true);
     setIsPowerOn(true);
     setIsSwitchOn(false);
+    playSound('success');
     toast.success('Simulation mode started! Press and hold the switch to turn on the LED! ✨', {
       duration: 2000,
       style: {
@@ -447,13 +470,14 @@ export default function Experiment1() {
     setIsPowerOn(false);
     setIsSwitchOn(false);
     setBatteryX(700);
+    playSound('click');
 
     toast.success('All connections reset! 🔄', {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: '#4CAF50',
         color: 'white',
-        fontSize: '12px',
+        fontSize: '14px',
         padding: '5px 10px',
       }
     });
@@ -812,11 +836,26 @@ export default function Experiment1() {
         )}
       </svg>
 
-       {/* Controls Section - Positioned over SVG */}
-      <div className="absolute bottom-4 left-4 flex gap-2 z-10">
+          {/* Controls Section - Positioned over SVG */}
+    <div className="absolute bottom-4 left-4 right-4 flex justify-between z-10">
+      {/* Left side controls group */}
+      <div className="flex gap-1.5">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-blue-500 font-medium border border-blue-500 text-white
+            hover:bg-blue-400 active:bg-blue-600 transition-colors
+            flex items-center gap-1.5 rounded-md shadow-md"
+          title="Go Back"
+        >
+          <FaArrowLeft className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline text-xs">Back</span>
+        </button>
+
+        {/* Help Button */}
         <div className="relative">
           {showHelpHighlight && (
-            <div className="absolute -inset-4 animate-pulse">
+            <div className="absolute -inset-2 animate-pulse">
               <div className="absolute inset-0 rounded-full bg-green-400 opacity-30"></div>
               <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping"></div>
             </div>
@@ -826,43 +865,84 @@ export default function Experiment1() {
               setShowHelp(true);
               setShowHelpHighlight(false);
             }}
-            className="relative px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-green-500 font-semibold border-2 border-green-500 text-white
+            className="relative px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-green-500 font-medium border border-green-500 text-white
               hover:bg-green-400 active:bg-green-600 transition-colors
-              flex items-center gap-1 rounded-md shadow-lg"
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Help Guide"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-            </svg>
-            Help
+            <FaQuestionCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Help</span>
           </button>
         </div>
-        <button
-          onClick={handleBack}
-          className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-blue-500 font-semibold border-2 border-blue-500 text-white
-            hover:bg-blue-400 active:bg-blue-600 transition-colors
-            flex items-center rounded-md shadow-lg"
-        >
-          Go Back to Experiments
-        </button>
-        <button
-          onClick={handleReset}
-          className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-red-500 font-semibold border-2 border-red-500 text-white
-            hover:bg-red-400 active:bg-red-600 transition-colors
-            flex items-center gap-1 rounded-md shadow-lg"
-        >
-          Reset Connections
-        </button>
+
+        {/* Only show reset button when there are changes AND not in simulation mode */}
+        {!isSimulationMode && (connections.length > 0 || batteryX !== 700) && (
+          <button
+            onClick={handleReset}
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-red-500 font-medium border border-red-500 text-white
+              hover:bg-red-400 active:bg-red-600 transition-colors
+              flex items-center gap-1.5 rounded-md shadow-md animate-fadeIn"
+            title="Reset Circuit"
+          >
+            <FaUndo className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Reset</span>
+          </button>
+        )}
+
         {isSimulationMode && (
           <button
             onClick={handleExitSimulation}
-            className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-red-500 font-semibold border-2 border-red-500 text-white
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-red-500 font-medium border border-red-500 text-white
               hover:bg-red-400 active:bg-red-600 transition-colors
-              flex items-center gap-1 rounded-md shadow-lg"
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Exit Simulation"
           >
-            Exit Simulation
+            <MdExitToApp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Exit</span>
+          </button>
+        )}
+
+        {showSimulationButton && !isSimulationMode && (
+          <button
+            onClick={handleSimulationMode}
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-purple-100 font-medium border border-purple-300 text-purple-800
+              hover:bg-purple-200 active:bg-purple-400 transition-colors
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Start Simulation"
+          >
+            <FaPlay className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Simulate</span>
           </button>
         )}
       </div>
+
+    {/*Right  side*/}
+    <div className='flex gap-1.5'>
+      {/* Previous Experiment Button */}
+      <button
+        onClick={handlePreviousExperiment}
+        className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-yellow-200 font-medium border border-yellow-500 text-yellow-800
+          hover:bg-yellow-200 active:bg-yellow-400 transition-colors
+          flex items-center gap-1.5 rounded-md shadow-md"
+        title="Previous Experiment"
+      >
+        <FaArrowLeft className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline text-xs">Previous</span>
+      </button>
+        {/* Next Experiment Button */}
+      <button
+        onClick={handleNextExperiment}
+        className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-purple-100 font-medium border border-purple-300 text-purple-800
+          hover:bg-purple-200 active:bg-purple-400 transition-colors
+          flex items-center gap-1.5 rounded-md shadow-md"
+        title="Next Experiment"
+      >
+        <span className="hidden sm:inline text-xs">Next</span>
+        <FaArrowRight className="h-3.5 w-3.5" />
+      </button>
+
+      </div>
+    </div>
 
       {/* Help Modal */}
       {showHelp && (

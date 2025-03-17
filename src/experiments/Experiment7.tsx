@@ -1,15 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import { useFullscreen } from "../FullscreenContext";
+import { useSound } from "../SoundContext";
 import powerSupplyBoard from "../assets/power supply board.svg";
 import ledboard from "../assets/led board.svg";
 import battery from "../assets/9vbattery long.svg";
-import switchboard from "../assets/two way switch.svg";
+import LimitSwitch from "../assets/Limit Switch.svg";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { Toaster } from "react-hot-toast";
 import confetti from "canvas-confetti";
 import "../index.css";
+import { FaArrowLeft, FaUndo, FaPlay, FaQuestionCircle, FaArrowRight } from 'react-icons/fa';
+import { MdExitToApp } from 'react-icons/md';
 
 // Add these types at the top of the file
 type CircuitNodeType =
@@ -17,9 +20,9 @@ type CircuitNodeType =
   | "GND"
   | "LED_POSITIVE"
   | "LED_NEGATIVE"
-  | "SWITCH_A"
-  | "SWITCH_COM"
-  | "SWITCH_B";
+  | "COM"
+  | "NO"
+  | "NC";
 
 // Wire path coordinates
 const WIRE_PATHS = {
@@ -31,17 +34,17 @@ const WIRE_PATHS = {
   GND2_TO_LED2: "M 660 215 L 700 215 L 700 240 L 700 290 L 777 290",  // Down, right, down
   LED2_TO_GND2: "M 777 290 L 700 290 L 700 240 L 700 215 L 660 215",  // Up, right, up
 
-  // LED1+ to Switch A with bends (both directions)
-  LED1_TO_SWITCH_A: "M 385 280 L 385 320 L 575 320 L 575 350",  // Up, right, up
-  SWITCH_A_TO_LED1: "M 575 350 L 575 320 L 385 320 L 385 280",  // Down, left, down
+  // LED1+ to COM with bends (both directions)
+  LED1_TO_COM: "M 385 280 L 385 320 L 575 320 L 575 350",  // Up, right, up
+  COM_TO_LED1: "M 575 350 L 575 320 L 385 320 L 385 280",  // Down, left, down
 
-  // LED2+ to Switch B with bends (both directions)
-  LED2_TO_SWITCH_B: "M 817 280 L 817 320 L 625 320 L 625 350",  // Up, right, up
-  SWITCH_B_TO_LED2: "M 625 350 L 625 320 L 817 320 L 817 280",  // Down, left, down
+  // LED2+ to NO with bends (both directions)
+  LED2_TO_NO: "M 817 280 L 817 320 L 600 320 L 600 350",  // Up, right, up
+  NO_TO_LED2: "M 600 350 L 600 320 L 817 320 L 817 280",  // Down, left, down
 
-  // Switch COM to 5V with bends (both directions)
-  SWITCH_COM_TO_5V: "M 600 350 L 600 320 L 591 320 L 591 195",   // Up, right, up
-  V5_TO_SWITCH_COM: "M 591 195 L 591 320 L 600 320 L 600 350"    // Down, left, down
+  // COM to 5V with bends (both directions)
+  COM_TO_5V: "M 620 350 L 620 300 L 591 300 L 591 195",   // Up, right, upyy
+  V5_TO_COM: "M 591 195 L 591 300 L 620 300 L 620 350"    // Down, left, down
 };
 
 interface CircuitNode {
@@ -59,6 +62,7 @@ interface Connection {
 export default function Experiment1() {
   const navigate = useNavigate();
   const { setIsFullscreen } = useFullscreen();
+  const { playSound } = useSound();
   const [batteryX, setBatteryX] = useState(700);
   const [selectedNode, setSelectedNode] = useState<CircuitNode | null>(null);
   const [showSimulationButton, setShowSimulationButton] = useState(false);
@@ -67,8 +71,21 @@ export default function Experiment1() {
   const [showHelpHighlight, setShowHelpHighlight] = useState(true);
   const [isFullscreen, setIsFullscreenState] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [switchPosition, setSwitchPosition] = useState<"left" | "right">("left");
   const [isPowerOn, setIsPowerOn] = useState(false);
+  const [switchPosition, setSwitchPosition] = useState<"left" | "right">("left");
+
+  // Navigation handlers
+  const handleNextExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/8');
+    playSound('click');
+  };
+
+  const handlePreviousExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/6');
+    playSound('click');
+  };
 
   // Define circuit nodes
   const circuitNodes: CircuitNode[] = [
@@ -79,9 +96,9 @@ export default function Experiment1() {
     { id: "led1_neg", type: "LED_NEGATIVE", x: 405, y: 280 },
     { id: "led2_pos", type: "LED_POSITIVE", x: 807, y: 281 },
     { id: "led2_neg", type: "LED_NEGATIVE", x: 777, y: 280 },
-    { id: "switch_a", type: "SWITCH_A", x: 565, y: 350 },
-    { id: "switch_com", type: "SWITCH_COM", x: 590, y: 350 },
-    { id: "switch_b", type: "SWITCH_B", x: 615, y: 350 }
+    { id: "switch_a", type: "COM", x: 565, y: 350 },
+    { id: "switch_com", type: "COM", x: 615, y: 350 },
+    { id: "switch_b", type: "NO", x: 590, y: 350 }
   ];
 
   // Enhanced fullscreen handling
@@ -161,18 +178,19 @@ export default function Experiment1() {
 
   const handleBack = () => {
     setIsFullscreen(true);
-    navigate("/");
+    navigate("/game ");
   };
 
   const handleBatteryClick = () => {
     if (isSimulationMode) return;
-    setBatteryX((prev) => (prev === 700 ? 630 : 700));
+    setBatteryX((prev) => (prev === 700 ? 620 : 700));
+    playSound('click');
     toast.success("Battery moved! 🔋", {
-      duration: 1000,
+      duration: 2000,
       style: {
         background: "#4CAF50",
         color: "white",
-        fontSize: "12px",
+        fontSize: "14px",
         padding: "5px 10px",
       },
     });
@@ -220,13 +238,13 @@ export default function Experiment1() {
       (node1.type === "GND" && node2.type === "LED_NEGATIVE") ||
       (node1.type === "LED_NEGATIVE" && node2.type === "GND") ||
       // LED positive to switch terminal connections
-      (node1.id === "led1_pos" && node2.type === "SWITCH_A") ||
-      (node1.type === "SWITCH_A" && node2.id === "led1_pos") ||
-      (node1.id === "led2_pos" && node2.type === "SWITCH_B") ||
-      (node1.type === "SWITCH_B" && node2.id === "led2_pos") ||
+      (node1.id === "led1_pos" && node2.type === "COM") ||
+      (node1.type === "COM" && node2.id === "led1_pos") ||
+      (node1.id === "led2_pos" && node2.type === "NO") ||
+      (node1.type === "NO" && node2.id === "led2_pos") ||
       // Switch COM to 5V connection
-      (node1.type === "SWITCH_COM" && node2.type === "5V") ||
-      (node1.type === "5V" && node2.type === "SWITCH_COM")
+      (node1.type === "COM" && node2.type === "5V") ||
+      (node1.type === "5V" && node2.type === "COM")
     );
   };
 
@@ -246,25 +264,25 @@ export default function Experiment1() {
 
     // LED+ to Switch A/B connections
     if (
-      (from.id === "led1_pos" && to.type === "SWITCH_A") ||
-      (to.id === "led1_pos" && from.type === "SWITCH_A")
+      (from.id === "led1_pos" && to.type === "COM") ||
+      (to.id === "led1_pos" && from.type === "COM")
     ) {
-      return from.id === "led1_pos" ? WIRE_PATHS.LED1_TO_SWITCH_A : WIRE_PATHS.SWITCH_A_TO_LED1;
+      return from.id === "led1_pos" ? WIRE_PATHS.LED1_TO_COM : WIRE_PATHS.COM_TO_LED1;
     }
 
     if (
-      (from.id === "led2_pos" && to.type === "SWITCH_B") ||
-      (to.id === "led2_pos" && from.type === "SWITCH_B")
+      (from.id === "led2_pos" && to.type === "NO") ||
+      (to.id === "led2_pos" && from.type === "NO")
     ) {
-      return from.id === "led2_pos" ? WIRE_PATHS.LED2_TO_SWITCH_B : WIRE_PATHS.SWITCH_B_TO_LED2;
+      return from.id === "led2_pos" ? WIRE_PATHS.LED2_TO_NO : WIRE_PATHS.NO_TO_LED2;
     }
 
     // Switch COM to 5V connection
     if (
-      (from.type === "SWITCH_COM" && to.type === "5V") ||
-      (to.type === "SWITCH_COM" && from.type === "5V")
+      (from.type === "COM" && to.type === "5V") ||
+      (to.type === "COM" && from.type === "5V")
     ) {
-      return from.type === "SWITCH_COM" ? WIRE_PATHS.SWITCH_COM_TO_5V : WIRE_PATHS.V5_TO_SWITCH_COM;
+      return from.type === "COM" ? WIRE_PATHS.COM_TO_5V : WIRE_PATHS.V5_TO_COM;
     }
 
     return `M ${from.x + 10} ${from.y + 10} L ${to.x + 10} ${to.y + 10}`;
@@ -311,18 +329,19 @@ export default function Experiment1() {
       hasLed1ToSwitchA &&
       hasLed2ToSwitchB &&
       hasSwitchComTo5V &&
-      batteryX === 630 &&
+      batteryX === 620 &&
       !showSimulationButton
     ) {
       // Add a delay before showing success message
       setTimeout(() => {
         // Show success message
+        playSound('success');
         toast.success("Circuit complete! Ready for simulation! ✨", {
-          duration: 1000,
+          duration: 2000,
           style: {
             background: "#4CAF50",
             color: "white",
-            fontSize: "12px",
+            fontSize: "14px",
             padding: "5px 10px",
           },
           icon: "✨",
@@ -331,65 +350,29 @@ export default function Experiment1() {
         // Trigger confetti and show simulation button
         triggerConfetti();
         setShowSimulationButton(true);
-      }, 1000);
+      }, 500);
     }
-  }, [connections, batteryX, showSimulationButton, triggerConfetti]);
+  }, [connections, batteryX, showSimulationButton, triggerConfetti, playSound]);
 
   const handlePowerToggle = () => {
     if (!isSimulationMode) return;
     setIsPowerOn(!isPowerOn);
-    
-    toast.success(isPowerOn ? "Power turned OFF! 🔌" : "Power turned ON! ⚡", {
-      duration: 1000,
+    playSound('click');
+    toast.success(`Power ${!isPowerOn ? 'on' : 'off'}! ⚡`, {
+      duration: 2000,
       style: {
-        background: isPowerOn ? "#f44336" : "#4CAF50",
-        color: "white",
-        fontSize: "12px",
-        padding: "5px 10px",
-      },
+        background: '#4CAF50',
+        color: 'white',
+        fontSize: '14px',
+        padding: '5px 10px',
+      }
     });
-
-    // Turn off LEDs when power is turned off
-    if (isPowerOn) {
-      setSwitchPosition("left");
-    }
-  };
-
-  const handleSwitchToggle = () => {
-    if (!isSimulationMode || !isPowerOn) return;
-    
-    const newPosition = switchPosition === "left" ? "right" : "left";
-    setSwitchPosition(newPosition);
-    
-    if (newPosition === "left") {
-      toast.success("Left LED is ON, Right LED is OFF", {
-        duration: 1000,
-        style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "12px",
-          padding: "5px 10px",
-        },
-        icon: "💡",
-      });
-    } else {
-      toast.success("Right LED is ON, Left LED is OFF", {
-        duration: 1000,
-        style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "12px",
-          padding: "5px 10px",
-        },
-        icon: "💡",
-      });
-    }
   };
 
   const handleSimulationMode = () => {
     setIsSimulationMode(true);
-    setSwitchPosition("left");
-    setIsPowerOn(false);
+    setIsPowerOn(true);
+    playSound('success');
   };
 
   const handleNodeClick = (node: CircuitNode) => {
@@ -397,15 +380,15 @@ export default function Experiment1() {
 
     if (!selectedNode) {
       setSelectedNode(node);
-      // Just select the node, no temporary wire shown
+      playSound('click');
       toast.success(`Selected ${node.type} terminal! Now click a matching terminal!`, {
-        duration: 1000,
+        duration: 2000,
         style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "12px",
-          padding: "5px 10px",
-        },
+          background: '#4CAF50',
+          color: 'white',
+          fontSize: '14px',
+          padding: '5px 10px',
+        }
       });
       return;
     }
@@ -413,6 +396,7 @@ export default function Experiment1() {
     // If clicking the same node, deselect it
     if (selectedNode.id === node.id) {
       setSelectedNode(null);
+      playSound('click');
       setConnections(prev => prev.filter(conn => 
         conn.from.id !== node.id && conn.to.id !== node.id
       ));
@@ -426,53 +410,43 @@ export default function Experiment1() {
         to: node,
       };
       setConnections(prev => [...prev, newConnection]);
+      playSound('connection');
       
-      toast.success("Connection made! ✨", {
-        duration: 1000,
+      toast.success('Connection made! ✨', {
+        duration: 2000,
         style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "12px",
-          padding: "5px 10px",
-        },
+          background: '#4CAF50',
+          color: 'white',
+          fontSize: '14px',
+          padding: '5px 10px',
+        }
       });
     } else {
-      toast.error("Invalid connection! Try matching terminals.", {
-        duration: 1000,
+      playSound('error');
+      toast.error('Invalid connection! Try connecting the relay switch correctly.', {
+        duration: 2000,
         style: {
-          background: "#f44336",
-          color: "white",
-          fontSize: "12px",
-          padding: "5px 10px",
-        },
+          background: '#f44336',
+          color: 'white',
+          fontSize: '14px',
+          padding: '5px 10px',
+        }
       });
     }
     setSelectedNode(null);
   };
 
   const handleReset = () => {
-    setConnections([]);
-    setSelectedNode(null);
     setShowSimulationButton(false);
     setIsSimulationMode(false);
+    setIsPowerOn(false);
     setBatteryX(700);
     setSwitchPosition("left");
-    setIsPowerOn(false);
-
-    toast.success("All connections reset! 🔄", {
-      duration: 1000,
-      style: {
-        background: "#4CAF50",
-        color: "white",
-        fontSize: "12px",
-        padding: "5px 10px",
-      },
-    });
+    playSound('click');
   };
 
   const handleExitSimulation = () => {
     setIsSimulationMode(false);
-    setSwitchPosition("left");
     handleReset();
   };
 
@@ -499,8 +473,8 @@ export default function Experiment1() {
       <div className="bg-blue-200 h-[10vh] flex items-center -full border-b border-blue-200 p-5 rounded-md">
         <p className="text-center text-black-800 text-lg font-semibold">
           {isSimulationMode
-            ? "Simulation Mode - Click the toggle switch and see the Magic! 💡"
-            : "Make the Two-Way Switch Circuit connect the LEDs! ✨"}
+            ? "Simulation Mode - Press the Limit Switch to see NO/NC LED behavior! 💡"
+            : "Connect the Limit Switch Circuit - NO LED and NC LED! ✨"}
         </p>
       </div>
 
@@ -611,16 +585,16 @@ export default function Experiment1() {
             />
           </g>
 
-          {/* Switch board */}
+          {/* Limit Switch */}
           <g transform="rotate(0, 500, 500)">
             <image
-              href={switchboard}
-              x="350"
-              y="200"
-              width="200"
-              height="200"
+              href={LimitSwitch}
+              x="503"
+              y="96"
+              width="180"
+              height="180"
               preserveAspectRatio="xMidYMid meet"
-              transform="rotate(270, 600, 300)"
+              transform="rotate(180, 600, 300)"
             />
           </g>
 
@@ -761,10 +735,10 @@ export default function Experiment1() {
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[7])}
-              id="switch_a_terminal"
+              id="switch_NC_terminal" 
             />
             <rect
-              x="590"
+              x="615"
               y="350"
               width="20"
               height="20"
@@ -774,10 +748,10 @@ export default function Experiment1() {
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[8])}
-              id="switch_com_terminal"
+              id="switch_NO_terminal"
             />
             <rect
-              x="615"
+              x="590"
               y="350"
               width="20"
               height="20"
@@ -787,37 +761,67 @@ export default function Experiment1() {
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[9])}
-              id="switch_b_terminal"
+              id="switch_COM_terminal"
             />
 
-            {/* Toggle switch in simulation mode - appears on top */}
+            {/* Push button in simulation mode */}
             {isSimulationMode && (
-              <g>
-                <rect
-                  x="565"
-                  y="490"
-                  width="70"
-                  height="30"
-                  fill="#e0e0e0"
-                  stroke="#cccccc"
+              <g transform="translate(530, 440)" style={{ opacity: isPowerOn ? 1 : 0.4 }}>
+                {/* Button base (always visible) */}
+                <circle
+                  cx="25"
+                  cy="25"
+                  r="25"
+                  fill="#d1d1d1"
+                  stroke="#999999"
                   strokeWidth="2"
-                  rx="5"
                 />
-                <rect
-                  x={switchPosition === "left" ? "565" : "615"}
-                  y="490"
-                  width="20"
-                  height="30"
-                  fill="#4CAF50"
-                  stroke="#2E7D32"
-                  strokeWidth="2"
-                  rx="5"
-                  style={{ 
-                    cursor: "pointer",
-                    transition: "all 0.3s ease-in-out"
-                  }}
-                  onClick={handleSwitchToggle}
-                />
+                
+                {/* Button top (moves when pressed) */}
+                <g transform={`translate(0, ${switchPosition === "right" ? 3 : 0})`}>
+                  <circle
+                    cx="25"
+                    cy="25"
+                    r="22"
+                    fill={switchPosition === "right" ? '#3d8c40' : '#4CAF50'}
+                    stroke={switchPosition === "right" ? '#2E7D32' : '#45a049'}
+                    strokeWidth="2"
+                    style={{
+                      cursor: isPowerOn ? "pointer" : "not-allowed",
+                      transition: "all 0.05s ease-in-out",
+                      filter: switchPosition === "right" ? "brightness(0.9)" : "brightness(1)"
+                    }}
+                    onMouseDown={() => isPowerOn && setSwitchPosition("right")}
+                    onMouseUp={() => isPowerOn && setSwitchPosition("left")}
+                    onMouseLeave={() => isPowerOn && setSwitchPosition("left")}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      isPowerOn && setSwitchPosition("right");
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      isPowerOn && setSwitchPosition("left");
+                    }}
+                    onTouchCancel={(e) => {
+                      e.preventDefault();
+                      isPowerOn && setSwitchPosition("left");
+                    }}
+                  />
+                  <text
+                    x="25"
+                    y="30"
+                    textAnchor="middle"
+                    fill="#ffffff"
+                    style={{
+                      userSelect: "none",
+                      pointerEvents: "none",
+                      fontSize: "14px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    PUSH
+                  </text>
+                </g>
               </g>
             )}
           </g>
@@ -893,105 +897,113 @@ export default function Experiment1() {
           )}
         </svg>
 
-        {/* Controls Section - Positioned over SVG */}
-        <div className="absolute bottom-4 left-4 flex gap-2 z-10">
-          <div className="relative">
-            {showHelpHighlight && (
-              <div className="absolute -inset-4 animate-pulse">
-                <div className="absolute inset-0 rounded-full bg-green-400 opacity-30"></div>
-                <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping"></div>
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setShowHelp(true);
-                setShowHelpHighlight(false);
-              }}
-              className="relative px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-green-500 font-semibold border-2 border-green-500 text-white
-              hover:bg-green-400 active:bg-green-600 transition-colors
-              flex items-center gap-1 rounded-md shadow-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Help
-            </button>
-          </div>
-          <button
-            onClick={handleBack}
-            className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-blue-500 font-semibold border-2 border-blue-500 text-white
+            {/* Controls Section - Positioned over SVG */}
+    <div className="absolute bottom-4 left-4 right-4 flex justify-between z-10">
+      {/* Left side controls group */}
+      <div className="flex gap-1.5">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-blue-500 font-medium border border-blue-500 text-white
             hover:bg-blue-400 active:bg-blue-600 transition-colors
-            flex items-center rounded-md shadow-lg"
+            flex items-center gap-1.5 rounded-md shadow-md"
+          title="Go Back"
+        >
+          <FaArrowLeft className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline text-xs">Back</span>
+        </button>
+
+        {/* Help Button */}
+        <div className="relative">
+          {showHelpHighlight && (
+            <div className="absolute -inset-2 animate-pulse">
+              <div className="absolute inset-0 rounded-full bg-green-400 opacity-30"></div>
+              <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping"></div>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              setShowHelp(true);
+              setShowHelpHighlight(false);
+            }}
+            className="relative px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-green-500 font-medium border border-green-500 text-white
+              hover:bg-green-400 active:bg-green-600 transition-colors
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Help Guide"
           >
-            Go Back to Experiments
+            <FaQuestionCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Help</span>
           </button>
+        </div>
+
+        {/* Only show reset button when there are changes AND not in simulation mode */}
+        {!isSimulationMode && (connections.length > 0 || batteryX !== 700) && (
           <button
             onClick={handleReset}
-            className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-red-500 font-semibold border-2 border-red-500 text-white
-            hover:bg-red-400 active:bg-red-600 transition-colors
-            flex items-center gap-1 rounded-md shadow-lg"
-          >
-            Reset Connections
-          </button>
-          {isSimulationMode && (
-            <button
-              onClick={handleExitSimulation}
-              className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-red-500 font-semibold border-2 border-red-500 text-white
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-red-500 font-medium border border-red-500 text-white
               hover:bg-red-400 active:bg-red-600 transition-colors
-              flex items-center gap-1 rounded-md shadow-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4 mr-1"
-              >
-                <path d="M18 6L6 18"></path>
-                <path d="M6 6l12 12"></path>
-              </svg>
-              Exit Simulation
-            </button>
-          )}
-          {showSimulationButton && !isSimulationMode && (
-            <button
-              onClick={handleSimulationMode}
-              className="px-2 py-1 text-xs sm:text-sm sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-purple-100 font-semibold border-2 border-purple-300 text-purple-800
+              flex items-center gap-1.5 rounded-md shadow-md animate-fadeIn"
+            title="Reset Circuit"
+          >
+            <FaUndo className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Reset</span>
+          </button>
+        )}
+
+        {isSimulationMode && (
+          <button
+            onClick={handleExitSimulation}
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-red-500 font-medium border border-red-500 text-white
+              hover:bg-red-400 active:bg-red-600 transition-colors
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Exit Simulation"
+          >
+            <MdExitToApp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Exit</span>
+          </button>
+        )}
+
+        {showSimulationButton && !isSimulationMode && (
+          <button
+            onClick={handleSimulationMode}
+            className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-purple-100 font-medium border border-purple-300 text-purple-800
               hover:bg-purple-200 active:bg-purple-400 transition-colors
-              flex items-center gap-1 rounded-md shadow-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="lucide lucide-play mr-2 h-5 w-5"
-              >
-                <polygon points="6 3 20 12 6 21 6 3"></polygon>
-              </svg>
-              Go to Simulation 🚀
-            </button>
-          )}
-        </div>
+              flex items-center gap-1.5 rounded-md shadow-md"
+            title="Start Simulation"
+          >
+            <FaPlay className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">Simulate</span>
+          </button>
+        )}
+      </div>
+
+    {/*Right  side*/}
+    <div className='flex gap-1.5'>
+      {/* Previous Experiment Button */}
+      <button
+        onClick={handlePreviousExperiment}
+        className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-yellow-200 font-medium border border-yellow-500 text-yellow-800
+          hover:bg-yellow-200 active:bg-yellow-400 transition-colors
+          flex items-center gap-1.5 rounded-md shadow-md"
+        title="Previous Experiment"
+      >
+        <FaArrowLeft className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline text-xs">Previous</span>
+      </button>
+        {/* Next Experiment Button */}
+      <button
+        onClick={handleNextExperiment}
+        className="px-2 py-1 text-xs sm:text-xs sm:px-2.5 sm:py-1.5 bg-purple-100 font-medium border border-purple-300 text-purple-800
+          hover:bg-purple-200 active:bg-purple-400 transition-colors
+          flex items-center gap-1.5 rounded-md shadow-md"
+        title="Next Experiment"
+      >
+        <span className="hidden sm:inline text-xs">Next</span>
+        <FaArrowRight className="h-3.5 w-3.5" />
+      </button>
+
+      </div>
+    </div>
 
         {/* Help Modal */}
         {showHelp && (
@@ -999,7 +1011,7 @@ export default function Experiment1() {
             <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95%] sm:max-w-md w-full shadow-xl overflow-y-auto max-h-[90vh]">
               <div className="flex justify-between items-center mb-3 sm:mb-4">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                  Two-Way Switch Circuit Guide! 🎮
+                  Limit Switch Circuit Guide! 🎮
                 </h2>
                 <button
                   onClick={() => setShowHelp(false)}
@@ -1043,7 +1055,7 @@ export default function Experiment1() {
                     3.
                   </span>
                   <p>
-                    Connect LED1's positive terminal (red) to Switch A terminal! 💡
+                    Connect LED1's positive terminal to Switch NO (Normally Open) terminal! 💡
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -1051,7 +1063,7 @@ export default function Experiment1() {
                     4.
                   </span>
                   <p>
-                    Connect LED2's positive terminal (red) to Switch B terminal! 💡
+                    Connect LED2's positive terminal to Switch NC (Normally Closed) terminal! 💡
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -1075,22 +1087,28 @@ export default function Experiment1() {
                     7.
                   </span>
                   <p>
-                    Once all connections are made, enter simulation mode to toggle between LEDs! 🎮
+                    Enter simulation mode to test the limit switch behavior! 🎮
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
                   <p className="text-blue-800 font-semibold text-sm sm:text-base">
-                    💡 Tips:
+                    💡 How it works:
                   </p>
                   <ul className="list-disc list-inside mt-2 text-blue-700 text-sm sm:text-base space-y-1">
                     <li>
-                      Match terminal colors: red to red, black to black
+                      NO (Normally Open) LED lights up when switch is pressed
+                    </li>
+                    <li>
+                      NC (Normally Closed) LED lights up when switch is not pressed
+                    </li>
+                    <li>
+                      The limit switch changes state when pressed/released
+                    </li>
+                    <li>
+                      This setup is commonly used in safety systems and sensors
                     </li>
                     <li>
                       Click a terminal again to remove its connection
-                    </li>
-                    <li>
-                      In simulation mode, click the toggle switch to change which LED is on
                     </li>
                     <li>
                       Use Reset to start over or Exit Simulation to make new connections

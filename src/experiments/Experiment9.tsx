@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 import { Toaster } from "react-hot-toast";
 import confetti from "canvas-confetti";
 import "../index.css";
-import { FaArrowLeft, FaUndo, FaPlay, FaQuestionCircle, FaArrowRight } from 'react-icons/fa';
+import { FaArrowLeft, FaUndo, FaPlay, FaQuestionCircle, FaHome } from 'react-icons/fa';
 import { MdExitToApp } from 'react-icons/md';
 
 // Add these types at the top of the file
@@ -20,31 +20,34 @@ type CircuitNodeType =
   | "GND"
   | "LED_POSITIVE"
   | "LED_NEGATIVE"
-  | "SWITCH_A"
-  | "SWITCH_COM"
-  | "SWITCH_B";
+  | "SWITCH1_A"
+  | "SWITCH1_COM"
+  | "SWITCH1_B"
+  | "SWITCH2_A"
+  | "SWITCH2_COM"
+  | "SWITCH2_B";
 
 // Wire path coordinates
 const WIRE_PATHS = {
-  // GND1 to LED1- with bend (both directions)
-  GND1_TO_LED1: "M 520 215 L 480 215 L 480 240 L 480 290 L 415 290",  // Down, right, down
-  LED1_TO_GND1: "M 405 290 L 480 290 L 480 240 L 480 215 L 520 215",  // Up, right, up
+  // GND to LED- with bend
+  GND_TO_LED: "M 590 220 L 590 260 L 315 260 L 315 220",  // GND to LED-
+  LED_TO_GND: "M 315 220 L 315 260 L 590 260 L 590 220",   // LED- to GND
 
-  // GND2 to LED2- with bend (both directions)
-  GND2_TO_LED2: "M 660 215 L 700 215 L 700 240 L 700 290 L 777 290",  // Down, right, down
-  LED2_TO_GND2: "M 777 290 L 700 290 L 700 240 L 700 215 L 660 215",  // Up, right, up
+  // 5V to Switch2 COM
+  V5_TO_SWITCH2_COM: "M 581 200 L 700 200 L 700 360",  // 5V to Switch2 COM
+  SWITCH2_COM_TO_5V: "M 700 360 L 700 200 L 581 200",  // Switch2 COM to 5V
 
-  // LED1+ to Switch A with bends (both directions)
-  LED1_TO_SWITCH_A: "M 385 280 L 385 320 L 575 320 L 575 350",  // Up, right, up
-  SWITCH_A_TO_LED1: "M 575 350 L 575 320 L 385 320 L 385 280",  // Down, left, down
+  // Switch2 A to Switch1 B
+  SWITCH2_A_TO_SWITCH1_B: "M 675 350 L 675 320 L 525 320 L 525 350",  // Switch2 A to Switch1 B
+  SWITCH1_B_TO_SWITCH2_A: "M 525 350 L 525 320 L 675 320 L 675 350",  // Switch1 B to Switch2 A
 
-  // LED2+ to Switch B with bends (both directions)
-  LED2_TO_SWITCH_B: "M 817 280 L 817 320 L 625 320 L 625 350",  // Up, right, up
-  SWITCH_B_TO_LED2: "M 625 350 L 625 320 L 817 320 L 817 280",  // Down, left, down
+  // Switch2 B to Switch1 A
+  SWITCH2_B_TO_SWITCH1_A: "M 725 350 L 725 320 L 780 320 L 780 560 L 430 560 L 430 320 L 475 320 L 475 350",  // Switch2 B to Switch1 A
+  SWITCH1_A_TO_SWITCH2_B: "M 475 350 L 475 320 L 430 320 L 430 560 L 780 560 L 780 320 L 725 320 L 725 350",   // Switch1 A to Switch2 B
 
-  // Switch COM to 5V with bends (both directions)
-  SWITCH_COM_TO_5V: "M 600 350 L 600 320 L 591 320 L 591 195",   // Up, right, up
-  V5_TO_SWITCH_COM: "M 591 195 L 591 320 L 600 320 L 600 350"    // Down, left, down
+  // Switch1 COM to LED positive
+  SWITCH1_COM_TO_LED: "M 500 350 L 500 280 L 285 280 L 285 210",  // Switch1 COM to LED+
+  LED_TO_SWITCH1_COM: "M 285 210 L 285 280 L 500 280 L 500 350"   // LED+ to Switch1 COM
 };
 
 interface CircuitNode {
@@ -71,28 +74,35 @@ export default function Experiment1() {
   const [showHelpHighlight, setShowHelpHighlight] = useState(true);
   const [isFullscreen, setIsFullscreenState] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [switchPosition, setSwitchPosition] = useState<"left" | "right">("left");
   const [isPowerOn, setIsPowerOn] = useState(true);
+  const [switch1Position, setSwitch1Position] = useState<"left" | "right">("left");
+  const [switch2Position, setSwitch2Position] = useState<"left" | "right">("left");
 
   // Navigation handlers
   const handleNextExperiment = () => {
     setIsFullscreen(true);
-    navigate('/experiment/7');
+    navigate('/');
+    playSound('click');
+  };
+
+  const handlePreviousExperiment = () => {
+    setIsFullscreen(true);
+    navigate('/experiment/8');
     playSound('click');
   };
 
   // Define circuit nodes
   const circuitNodes: CircuitNode[] = [
     { id: "5v", type: "5V", x: 581, y: 185 },
-    { id: "gnd1", type: "GND", x: 510, y: 205 },
-    { id: "gnd2", type: "GND", x: 650, y: 205 },
-    { id: "led1_pos", type: "LED_POSITIVE", x: 375, y: 280 },
-    { id: "led1_neg", type: "LED_NEGATIVE", x: 405, y: 280 },
-    { id: "led2_pos", type: "LED_POSITIVE", x: 807, y: 281 },
-    { id: "led2_neg", type: "LED_NEGATIVE", x: 777, y: 280 },
-    { id: "switch_a", type: "SWITCH_A", x: 565, y: 350 },
-    { id: "switch_com", type: "SWITCH_COM", x: 590, y: 350 },
-    { id: "switch_b", type: "SWITCH_B", x: 615, y: 350 }
+    { id: "gnd", type: "GND", x: 591, y: 309 },
+    { id: "led_pos", type: "LED_POSITIVE", x: 275, y: 200 },
+    { id: "led_neg", type: "LED_NEGATIVE", x: 305, y: 200 },
+    { id: "switch1_a", type: "SWITCH1_A", x: 565, y: 270 },
+    { id: "switch1_com", type: "SWITCH1_COM", x: 590, y: 270 },
+    { id: "switch1_b", type: "SWITCH1_B", x: 615, y: 270 },
+    { id: "switch2_a", type: "SWITCH2_A", x: 565, y: 320 },
+    { id: "switch2_com", type: "SWITCH2_COM", x: 590, y: 320 },
+    { id: "switch2_b", type: "SWITCH2_B", x: 615, y: 320 }
   ];
 
   // Enhanced fullscreen handling
@@ -175,12 +185,6 @@ export default function Experiment1() {
     navigate("/game");
   };
 
-  const handlePreviousExperiment = () => {
-    setIsFullscreen(true);
-    navigate('/experiment/5');
-    playSound('click');
-  };
-
   const handleBatteryClick = () => {
     if (isSimulationMode) return;
     setBatteryX(prev => prev === 700 ? 620 : 700);
@@ -234,55 +238,67 @@ export default function Experiment1() {
   const canConnect = (node1: CircuitNode, node2: CircuitNode) => {
     // Allow connections based on the specified wiring
     return (
-      // GND to LED negative connections
+      // GND to LED negative connection
       (node1.type === "GND" && node2.type === "LED_NEGATIVE") ||
       (node1.type === "LED_NEGATIVE" && node2.type === "GND") ||
-      // LED positive to switch terminal connections
-      (node1.id === "led1_pos" && node2.type === "SWITCH_A") ||
-      (node1.type === "SWITCH_A" && node2.id === "led1_pos") ||
-      (node1.id === "led2_pos" && node2.type === "SWITCH_B") ||
-      (node1.type === "SWITCH_B" && node2.id === "led2_pos") ||
-      // Switch COM to 5V connection
-      (node1.type === "SWITCH_COM" && node2.type === "5V") ||
-      (node1.type === "5V" && node2.type === "SWITCH_COM")
+      
+      // 5V to Switch2 COM connection
+      (node1.type === "5V" && node2.type === "SWITCH2_COM") ||
+      (node1.type === "SWITCH2_COM" && node2.type === "5V") ||
+      
+      // Switch2 A to Switch1 B connection
+      (node1.type === "SWITCH2_A" && node2.type === "SWITCH1_B") ||
+      (node1.type === "SWITCH1_B" && node2.type === "SWITCH2_A") ||
+      
+      // Switch2 B to Switch1 A connection
+      (node1.type === "SWITCH2_B" && node2.type === "SWITCH1_A") ||
+      (node1.type === "SWITCH1_A" && node2.type === "SWITCH2_B") ||
+
+      // Switch1 COM to LED positive connection
+      (node1.type === "SWITCH1_COM" && node2.type === "LED_POSITIVE") ||
+      (node1.type === "LED_POSITIVE" && node2.type === "SWITCH1_COM")
     );
   };
 
   const getWirePath = (from: CircuitNode, to: CircuitNode) => {
-    // GND to LED- connections
+    // GND to LED- connection
     if (
       (from.type === "GND" && to.type === "LED_NEGATIVE") ||
       (to.type === "GND" && from.type === "LED_NEGATIVE")
     ) {
-      // Determine which GND terminal is involved
-      if (from.id === "gnd1" || to.id === "gnd1") {
-        return from.type === "GND" ? WIRE_PATHS.GND1_TO_LED1 : WIRE_PATHS.LED1_TO_GND1;
-      } else {
-        return from.type === "GND" ? WIRE_PATHS.GND2_TO_LED2 : WIRE_PATHS.LED2_TO_GND2;
-      }
+      return from.type === "GND" ? WIRE_PATHS.GND_TO_LED : WIRE_PATHS.LED_TO_GND;
     }
 
-    // LED+ to Switch A/B connections
+    // 5V to Switch2 COM connection
     if (
-      (from.id === "led1_pos" && to.type === "SWITCH_A") ||
-      (to.id === "led1_pos" && from.type === "SWITCH_A")
+      (from.type === "5V" && to.type === "SWITCH2_COM") ||
+      (to.type === "5V" && from.type === "SWITCH2_COM")
     ) {
-      return from.id === "led1_pos" ? WIRE_PATHS.LED1_TO_SWITCH_A : WIRE_PATHS.SWITCH_A_TO_LED1;
+      return from.type === "5V" ? WIRE_PATHS.V5_TO_SWITCH2_COM : WIRE_PATHS.SWITCH2_COM_TO_5V;
     }
 
+    // Switch2 A to Switch1 B connection
     if (
-      (from.id === "led2_pos" && to.type === "SWITCH_B") ||
-      (to.id === "led2_pos" && from.type === "SWITCH_B")
+      (from.type === "SWITCH2_A" && to.type === "SWITCH1_B") ||
+      (to.type === "SWITCH2_A" && from.type === "SWITCH1_B")
     ) {
-      return from.id === "led2_pos" ? WIRE_PATHS.LED2_TO_SWITCH_B : WIRE_PATHS.SWITCH_B_TO_LED2;
+      return from.type === "SWITCH2_A" ? WIRE_PATHS.SWITCH2_A_TO_SWITCH1_B : WIRE_PATHS.SWITCH1_B_TO_SWITCH2_A;
     }
 
-    // Switch COM to 5V connection
+    // Switch2 B to Switch1 A connection
     if (
-      (from.type === "SWITCH_COM" && to.type === "5V") ||
-      (to.type === "SWITCH_COM" && from.type === "5V")
+      (from.type === "SWITCH2_B" && to.type === "SWITCH1_A") ||
+      (to.type === "SWITCH2_B" && from.type === "SWITCH1_A")
     ) {
-      return from.type === "SWITCH_COM" ? WIRE_PATHS.SWITCH_COM_TO_5V : WIRE_PATHS.V5_TO_SWITCH_COM;
+      return from.type === "SWITCH2_B" ? WIRE_PATHS.SWITCH2_B_TO_SWITCH1_A : WIRE_PATHS.SWITCH1_A_TO_SWITCH2_B;
+    }
+
+    // Switch1 COM to LED positive connection
+    if (
+      (from.type === "SWITCH1_COM" && to.type === "LED_POSITIVE") ||
+      (to.type === "SWITCH1_COM" && from.type === "LED_POSITIVE")
+    ) {
+      return from.type === "SWITCH1_COM" ? WIRE_PATHS.SWITCH1_COM_TO_LED : WIRE_PATHS.LED_TO_SWITCH1_COM;
     }
 
     return `M ${from.x + 10} ${from.y + 10} L ${to.x + 10} ${to.y + 10}`;
@@ -299,26 +315,24 @@ export default function Experiment1() {
       );
     };
 
-    // Check all required connections
-    const hasGnd1ToLed1 = hasConnection("gnd1", "led1_neg");
-    const hasGnd2ToLed2 = hasConnection("gnd2", "led2_neg");
-    const hasLed1ToSwitchA = hasConnection("led1_pos", "switch_a");
-    const hasLed2ToSwitchB = hasConnection("led2_pos", "switch_b");
-    const hasSwitchComTo5V = hasConnection("switch_com", "5v");
+    // Check all required connections for the staircase circuit
+    const hasGndToLedNeg = hasConnection("gnd", "led_neg");
+    const hasSwitch1ComToLedPos = hasConnection("switch1_com", "led_pos");
+    const hasSwitch2ComTo5V = hasConnection("switch2_com", "5v");
+    const hasSwitch2AToSwitch1B = hasConnection("switch2_a", "switch1_b");
+    const hasSwitch2BToSwitch1A = hasConnection("switch2_b", "switch1_a");
 
     // Check if all connections are made and battery is in correct position
     if (
-      hasGnd1ToLed1 &&
-      hasGnd2ToLed2 &&
-      hasLed1ToSwitchA &&
-      hasLed2ToSwitchB &&
-      hasSwitchComTo5V &&
+      hasGndToLedNeg &&
+      hasSwitch1ComToLedPos &&
+      hasSwitch2ComTo5V &&
+      hasSwitch2AToSwitch1B &&
+      hasSwitch2BToSwitch1A &&
       batteryX === 620 &&
       !showSimulationButton
     ) {
-      // Add a delay before showing success message
       setTimeout(() => {
-        // Show success message
         playSound('success');
         toast.success("Circuit complete! Ready for simulation! ✨", {
           duration: 2000,
@@ -330,8 +344,6 @@ export default function Experiment1() {
           },
           icon: "✨",
         });
-
-        // Trigger confetti and show simulation button
         triggerConfetti();
         setShowSimulationButton(true);
       }, 500);
@@ -353,35 +365,20 @@ export default function Experiment1() {
     });
   };
 
-  const handleSwitchToggle = () => {
+  const handleSwitch1Toggle = () => {
     if (!isSimulationMode || !isPowerOn) return;
     
-    const newPosition = switchPosition === "left" ? "right" : "left";
-    setSwitchPosition(newPosition);
+    const newPosition = switch1Position === "left" ? "right" : "left";
+    setSwitch1Position(newPosition);
+    playSound('click');
+  };
+
+  const handleSwitch2Toggle = () => {
+    if (!isSimulationMode || !isPowerOn) return;
     
-    if (newPosition === "left") {
-      playSound('click');
-      toast.success("Left LED is ON, Right LED is OFF", {
-        duration: 2000,
-        style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "14px",
-          padding: "5px 10px",
-        },
-      });
-    } else {
-      playSound('click');
-      toast.success("Right LED is ON, Left LED is OFF", {
-        duration: 2000,
-        style: {
-          background: "#4CAF50",
-          color: "white",
-          fontSize: "14px",
-          padding: "5px 10px",
-        },
-      });
-    }
+    const newPosition = switch2Position === "left" ? "right" : "left";
+    setSwitch2Position(newPosition);
+    playSound('click');
   };
 
   const handleSimulationMode = () => {
@@ -458,7 +455,8 @@ export default function Experiment1() {
     setIsSimulationMode(false);
     setIsPowerOn(true);
     setBatteryX(700);
-    setSwitchPosition("left");
+    setSwitch1Position("left");
+    setSwitch2Position("left");
     playSound('click');
 
     toast.success('All connections reset! 🔄', {
@@ -474,7 +472,8 @@ export default function Experiment1() {
 
   const handleExitSimulation = () => {
     setIsSimulationMode(false);
-    setSwitchPosition("left");
+    setSwitch1Position("left");
+    setSwitch2Position("left");
     handleReset();
   };
 
@@ -501,8 +500,8 @@ export default function Experiment1() {
       <div className="bg-blue-200 h-[10vh] flex items-center -full border-b border-blue-200 p-5 rounded-md">
         <p className="text-center text-black-800 text-lg font-semibold">
           {isSimulationMode
-            ? "Simulation Mode - Click the toggle switch and see the Magic! 💡"
-            : "Make the Two-Way Switch Circuit connect the LEDs! ✨"}
+            ? "Simulation Mode - Control the LED from two different locations! 🏃‍♂️"
+            : "Staircase Wiring: Connect Two-Way Switches to Control One LED! ✨"}
         </p>
       </div>
 
@@ -591,34 +590,33 @@ export default function Experiment1() {
 
           {/* LED boards */}
           <g transform="rotate(0, 500, 500)">
-            <image
-              href={ledboard}
-              x="400"
-              y="400"
-              width="200"
-              height="200"
+            {/* Single LED board */}
+            <image 
+              href={ledboard} 
+              x="320" 
+              y="500"
+              width="200" 
+              height="200" 
               preserveAspectRatio="xMidYMid meet"
               transform="rotate(90, 600, 300)"
             />
-          </g>
-          <g transform="rotate(0, 500, 500)">
-            <image
-              href={ledboard}
-              x="400"
-              y="-200"
-              width="200"
-              height="200"
-              preserveAspectRatio="xMidYMid meet"
-              transform="rotate(90, 600, 300) scale(1, -1)"
-            />
-          </g>
-
-          {/* Switch board */}
-          <g transform="rotate(0, 500, 500)">
+            
+            {/* First Switch */}
             <image
               href={switchboard}
               x="350"
-              y="200"
+              y="100"
+              width="200"
+              height="200"
+              preserveAspectRatio="xMidYMid meet"
+              transform="rotate(270, 600, 300)"
+            />
+
+            {/* Second Switch */}
+            <image
+              href={switchboard}
+              x="350"
+              y="300"
               width="200"
               height="200"
               preserveAspectRatio="xMidYMid meet"
@@ -659,34 +657,19 @@ export default function Experiment1() {
               id="5v_terminal"
             />
 
-            {/* GND 1 Terminal */}
+            {/* GND Terminal */}
             <rect
-              x="510"
-              y="205"
+              x="581"
+              y="210"
               width="20"
               height="20"
-              fill={selectedNode?.id === "gnd1" ? "#666666" : "#000000"}
-              stroke={selectedNode?.id === "gnd1" ? "#333333" : "#000"}
+              fill={selectedNode?.id === "gnd" ? "#666666" : "#000000"}
+              stroke={selectedNode?.id === "gnd" ? "#333333" : "#000"}
               strokeWidth="2"
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => handleNodeClick(circuitNodes[1])}
-              id="gnd1_terminal"
-            />
-
-            {/* GND 2 Terminal */}
-            <rect
-              x="650"
-              y="205"
-              width="20"
-              height="20"
-              fill={selectedNode?.id === "gnd2" ? "#666666" : "#000000"}
-              stroke={selectedNode?.id === "gnd2" ? "#333333" : "#000"}
-              strokeWidth="2"
-              rx="3"
-              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
-              onClick={() => handleNodeClick(circuitNodes[2])}
-              id="gnd2_terminal"
+              id="gnd_terminal"
             />
           </g>
 
@@ -694,132 +677,171 @@ export default function Experiment1() {
           <g>
             {/* LED 1 terminals */}
             <rect
-              x="375"
-              y="280"
+              x="275"
+              y="200"
               width="20"
               height="20"
-              fill={selectedNode?.id === "led1_pos" ? "#ff6666" : "#FF0000"}
-              stroke={selectedNode?.id === "led1_pos" ? "#cc0000" : "#000"}
+              fill={selectedNode?.id === "led_pos" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "led_pos" ? "#cc0000" : "#000"}
+              strokeWidth="2"
+              rx="3"
+              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
+              onClick={() => handleNodeClick(circuitNodes[2])}
+              id="led_pos_terminal"
+            />
+            <rect
+              x="305"
+              y="200"
+              width="20"
+              height="20"
+              fill={selectedNode?.id === "led_neg" ? "#666666" : "#000000"}
+              stroke={selectedNode?.id === "led_neg" ? "#333333" : "#000"}
               strokeWidth="2"
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => handleNodeClick(circuitNodes[3])}
-              id="led1_pos_terminal"
-            />
-            <rect
-              x="405"
-              y="280"
-              width="20"
-              height="20"
-              fill={selectedNode?.id === "led1_neg" ? "#666666" : "#000000"}
-              stroke={selectedNode?.id === "led1_neg" ? "#333333" : "#000"}
-              strokeWidth="2"
-              rx="3"
-              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
-              onClick={() => handleNodeClick(circuitNodes[4])}
-              id="led1_neg_terminal"
-            />
-
-            {/* LED 2 terminals */}
-            <rect
-              x="807"
-              y="281"
-              width="20"
-              height="20"
-              fill={selectedNode?.id === "led2_pos" ? "#ff6666" : "#FF0000"}
-              stroke={selectedNode?.id === "led2_pos" ? "#cc0000" : "#000"}
-              strokeWidth="2"
-              rx="3"
-              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
-              onClick={() => handleNodeClick(circuitNodes[5])}
-              id="led2_pos_terminal"
-            />
-            <rect
-              x="777"
-              y="280"
-              width="20"
-              height="20"
-              fill={selectedNode?.id === "led2_neg" ? "#666666" : "#000000"}
-              stroke={selectedNode?.id === "led2_neg" ? "#333333" : "#000"}
-              strokeWidth="2"
-              rx="3"
-              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
-              onClick={() => handleNodeClick(circuitNodes[6])}
-              id="led2_neg_terminal"
+              id="led_neg_terminal"
             />
           </g>
 
           {/* Switch terminals */}
           <g>
-            {/* Original switch terminals - always visible */}
+            {/* First switch terminals */}
             <rect
-              x="565"
+              x="465"
               y="350"
               width="20"
               height="20"
-              fill={selectedNode?.id === "switch_a" ? "#ff6666" : "#FF0000"}
-              stroke={selectedNode?.id === "switch_a" ? "#cc0000" : "#000"}
+              fill={selectedNode?.id === "switch1_a" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch1_a" ? "#cc0000" : "#000"}
+              strokeWidth="2"
+              rx="3"
+              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
+              onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[4])}
+              id="switch1_a_terminal"
+            />
+            <rect
+              x="490"
+              y="350"
+              width="20"
+              height="20"
+              fill={selectedNode?.id === "switch1_com" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch1_com" ? "#cc0000" : "#000"}
+              strokeWidth="2"
+              rx="3"
+              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
+              onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[5])}
+              id="switch1_com_terminal"
+            />
+            <rect
+              x="515"
+              y="350"
+              width="20"
+              height="20"
+              fill={selectedNode?.id === "switch1_b" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch1_b" ? "#cc0000" : "#000"}
+              strokeWidth="2"
+              rx="3"
+              style={{ cursor: isSimulationMode ? "default" : "pointer" }}
+              onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[6])}
+              id="switch1_b_terminal"
+            />
+
+            {/* Second switch terminals */}
+            <rect
+              x="665"
+              y="350"
+              width="20"
+              height="20"
+              fill={selectedNode?.id === "switch2_a" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch2_a" ? "#cc0000" : "#000"}
               strokeWidth="2"
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[7])}
-              id="switch_a_terminal"
+              id="switch2_a_terminal"
             />
             <rect
-              x="590"
+              x="690"
               y="350"
               width="20"
               height="20"
-              fill={selectedNode?.id === "switch_com" ? "#ff6666" : "#FF0000"}
-              stroke={selectedNode?.id === "switch_com" ? "#cc0000" : "#000"}
+              fill={selectedNode?.id === "switch2_com" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch2_com" ? "#cc0000" : "#000"}
               strokeWidth="2"
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[8])}
-              id="switch_com_terminal"
+              id="switch2_com_terminal"
             />
             <rect
-              x="615"
+              x="715"
               y="350"
               width="20"
               height="20"
-              fill={selectedNode?.id === "switch_b" ? "#ff6666" : "#FF0000"}
-              stroke={selectedNode?.id === "switch_b" ? "#cc0000" : "#000"}
+              fill={selectedNode?.id === "switch2_b" ? "#ff6666" : "#FF0000"}
+              stroke={selectedNode?.id === "switch2_b" ? "#cc0000" : "#000"}
               strokeWidth="2"
               rx="3"
               style={{ cursor: isSimulationMode ? "default" : "pointer" }}
               onClick={() => !isSimulationMode && handleNodeClick(circuitNodes[9])}
-              id="switch_b_terminal"
+              id="switch2_b_terminal"
             />
 
-            {/* Toggle switch in simulation mode - appears on top */}
+            {/* Toggle switches in simulation mode - appears on top */}
             {isSimulationMode && (
               <g>
-                <rect
-                  x="565"
-                  y="490"
-                  width="70"
-                  height="30"
-                  fill="#e0e0e0"
-                  stroke="#cccccc"
-                  strokeWidth="2"
-                  rx="5"
-                />
-                <rect
-                  x={switchPosition === "left" ? "565" : "615"}
-                  y="490"
-                  width="20"
-                  height="30"
-                  fill="#4CAF50"
-                  stroke="#2E7D32"
-                  strokeWidth="2"
-                  rx="5"
-                  style={{ 
-                    cursor: "pointer",
-                    transition: "all 0.3s ease-in-out"
-                  }}
-                  onClick={handleSwitchToggle}
-                />
+                {/* First two-way switch */}
+                <g transform="translate(465, 490)">
+                  <rect
+                    width="70"
+                    height="30"
+                    fill="#e0e0e0"
+                    stroke="#cccccc"
+                    strokeWidth="2"
+                    rx="5"
+                  />
+                  <rect
+                    x={switch1Position === "left" ? "0" : "50"}
+                    width="20"
+                    height="30"
+                    fill="#4CAF50"
+                    stroke="#2E7D32"
+                    strokeWidth="2"
+                    rx="5"
+                    style={{ 
+                      cursor: "pointer",
+                      transition: "all 0.3s ease-in-out"
+                    }}
+                    onClick={handleSwitch1Toggle}
+                  />
+                </g>
+
+                {/* Second two-way switch */}
+                <g transform="translate(665, 490)">
+                  <rect
+                    width="70"
+                    height="30"
+                    fill="#e0e0e0"
+                    stroke="#cccccc"
+                    strokeWidth="2"
+                    rx="5"
+                  />
+                  <rect
+                    x={switch2Position === "left" ? "0" : "50"}
+                    width="20"
+                    height="30"
+                    fill="#4CAF50"
+                    stroke="#2E7D32"
+                    strokeWidth="2"
+                    rx="5"
+                    style={{ 
+                      cursor: "pointer",
+                      transition: "all 0.3s ease-in-out"
+                    }}
+                    onClick={handleSwitch2Toggle}
+                  />
+                </g>
               </g>
             )}
           </g>
@@ -852,50 +874,29 @@ export default function Experiment1() {
             </g>
           )}
 
-          {/* LED Glow Effects - Only show when power is ON */}
+          {/* Single LED Glow Effect - Only show when power is ON and switches are in correct position */}
           {isSimulationMode && isPowerOn && (
-            <>
-              {/* LED 1 Glow */}
-              {switchPosition === "left" && (
-                <circle
-                  cx="400"
-                  cy="130"
-                  r="50"
-                  fill="url(#ledGradient)"
-                  filter="url(#glow)"
-                  opacity="0.8"
-                >
-                  <animate
-                    attributeName="opacity"
-                    values="0.8;0.6;0.8"
-                    dur="1s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              )}
-              {/* LED 2 Glow */}
-              {switchPosition === "right" && (
-                <circle
-                  cx="800"
-                  cy="130"
-                  r="50"
-                  fill="url(#ledGradient)"
-                  filter="url(#glow)"
-                  opacity="0.8"
-                >
-                  <animate
-                    attributeName="opacity"
-                    values="0.8;0.6;0.8"
-                    dur="1s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              )}
-            </>
+            (switch1Position === "left" && switch2Position === "left") || 
+            (switch1Position === "right" && switch2Position === "right")
+          ) && (
+            <circle
+              cx="300"
+              cy="50"
+              r="50"
+              fill="url(#ledGradient)"
+              filter="url(#glow)"
+              opacity="0.8"
+            >
+              <animate
+                attributeName="opacity"
+                values="0.8;0.6;0.8"
+                dur="1s"
+                repeatCount="indefinite"
+              />
+            </circle>
           )}
         </svg>
-
-           {/* Controls Section - Positioned over SVG */}
+    {/* Controls Section - Positioned over SVG */}
     <div className="absolute bottom-4 left-4 right-4 flex justify-between z-10">
       {/* Left side controls group */}
       <div className="flex gap-1.5">
@@ -975,7 +976,7 @@ export default function Experiment1() {
         )}
       </div>
 
-      {/*Right  side*/}
+        {/*Right  side*/}
       <div className='flex gap-1.5'>
       {/* Previous Experiment Button */}
       <button
@@ -996,8 +997,8 @@ export default function Experiment1() {
           flex items-center gap-1.5 rounded-md shadow-md"
         title="Next Experiment"
       >
-        <span className="hidden sm:inline text-xs">Next</span>
-        <FaArrowRight className="h-3.5 w-3.5" />
+        <FaHome className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline text-xs">Home</span>
       </button>
 
       </div>
@@ -1009,7 +1010,7 @@ export default function Experiment1() {
             <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95%] sm:max-w-md w-full shadow-xl overflow-y-auto max-h-[90vh]">
               <div className="flex justify-between items-center mb-3 sm:mb-4">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                  Two-Way Switch Circuit Guide! 🎮
+                  Staircase Circuit Guide! 🏠
                 </h2>
                 <button
                   onClick={() => setShowHelp(false)}
@@ -1037,7 +1038,7 @@ export default function Experiment1() {
                     1.
                   </span>
                   <p>
-                    Click and move the battery closer to power up the circuit! 🔋
+                    Move the battery closer to power up the circuit! 🔋
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -1045,7 +1046,7 @@ export default function Experiment1() {
                     2.
                   </span>
                   <p>
-                    Connect the 5V terminal (red) to the Switch COM terminal! ⚡
+                    Connect the power supply (5V) to Switch 1's COM terminal! ⚡
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -1053,15 +1054,19 @@ export default function Experiment1() {
                     3.
                   </span>
                   <p>
-                    Connect LED1's positive terminal (red) to Switch A terminal! 💡
+                    Connect Switch 1's terminals to Switch 2: 🔄
                   </p>
+                  <ul className="list-disc list-inside ml-4 mt-1 text-sm">
+                    <li>Switch 1 Terminal A → Switch 2 Terminal A</li>
+                    <li>Switch 1 Terminal B → Switch 2 Terminal B</li>
+                  </ul>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-500 font-bold text-sm sm:text-base">
                     4.
                   </span>
                   <p>
-                    Connect LED2's positive terminal (red) to Switch B terminal! 💡
+                    Connect Switch 2's COM terminal to LED positive (+)! 💡
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -1069,41 +1074,31 @@ export default function Experiment1() {
                     5.
                   </span>
                   <p>
-                    Connect LED1's negative terminal to GND1 (black)! ⚫
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold text-sm sm:text-base">
-                    6.
-                  </span>
-                  <p>
-                    Connect LED2's negative terminal to GND2 (black)! ⚫
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 font-bold text-sm sm:text-base">
-                    7.
-                  </span>
-                  <p>
-                    Once all connections are made, enter simulation mode to toggle between LEDs! 🎮
+                    Complete the circuit by connecting LED negative (-) to GND! ⚫
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
                   <p className="text-blue-800 font-semibold text-sm sm:text-base">
-                    💡 Tips:
+                    💡 How it works:
                   </p>
                   <ul className="list-disc list-inside mt-2 text-blue-700 text-sm sm:text-base space-y-1">
                     <li>
-                      Match terminal colors: red to red, black to black
+                      This is a real staircase wiring setup used in buildings
+                    </li>
+                    <li>
+                      You can control the LED from two different locations
+                    </li>
+                    <li>
+                      Flipping either switch will toggle the LED state
+                    </li>
+                    <li>
+                      Both switches must be in matching positions for the LED to light up
                     </li>
                     <li>
                       Click a terminal again to remove its connection
                     </li>
                     <li>
-                      In simulation mode, click the toggle switch to change which LED is on
-                    </li>
-                    <li>
-                      Use Reset to start over or Exit Simulation to make new connections
+                      Use Reset to start over or Exit to make new connections
                     </li>
                   </ul>
                 </div>
